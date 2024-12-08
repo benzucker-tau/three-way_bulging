@@ -1,0 +1,225 @@
+// 3way cont vol_2b.fe
+// 3-way junction of tubular network
+// tubes ends on a plane perpendicular to 3 vector equally spread from the middle with "arm" length
+
+// new version updates:  1) dadded grooming to refinement
+
+parameter arm 	= 5.5		     // tubes lengths
+parameter kappa = 1
+parameter gamma = 1.0
+parameter final_gamma = 1.8
+parameter sang  = sin(pi*30/180)
+parameter cang  = cos(pi*30/180)
+parameter in_rad= sqrt(0.5*kappa/gamma) 	 // initial radius of tubes
+parameter J0 = 0
+parameter pressure_const= 0.0  		// internal pressure
+parameter dV            = 0.0
+parameter junction_volume = 0 		// 
+parameter cal_pressure = 0 			// the calculation of the pressure by the tube radius is done by MATLAB
+parameter protocol = 0
+parameter toler 	= 2  			// number of std tolerable in geometric feature distribution
+
+
+constraint plane1  							/* tubule 1 origin */
+formula: arm-y*sang-x*cang=0
+
+constraint plane2   				    	/* tubule 1 origin */
+formula: y+arm=0
+
+constraint plane3   						/* tubule 2 origin */
+formula: arm-y*sang+x*cang=0
+
+//square_curvature 2*kappa
+QUANTITY stnsq ENERGY  modulus  2*kappa  method star_perp_sq_mean_curvature global 		
+
+// define vertex attribute h_zero real
+
+vertices
+1	arm*cang 				arm*sang 				in_rad 		plane1 		// middle point -> p1 = arm(cang,sang,0)
+2	arm*cang+sang*in_rad 	arm*sang-cang*in_rad 	0			plane1 
+3	arm*cang 				arm*sang 				-in_rad 	plane1 
+4	arm*cang-sang*in_rad 	arm*sang+cang*in_rad 	0			plane1 
+
+5	0						-arm	 				in_rad 		plane2 		// middle point -> pz = (0,-arm,0)
+6	in_rad					-arm					0			plane2 
+7   0						-arm					-in_rad		plane2 
+8	-in_rad					-arm					0			plane2 
+
+9	-arm*cang 				arm*sang 				in_rad 		plane3 		// middle point -> p1 = arm(-cang,sang)
+10	-arm*cang+sang*in_rad 	arm*sang+cang*in_rad 	0			plane3 
+11	-arm*cang 				arm*sang 				-in_rad 	plane3 
+12	-arm*cang-sang*in_rad 	arm*sang-cang*in_rad 	0			plane3 
+
+13	in_rad*(sang)*cang  in_rad*(sang)*sang  in_rad
+14  in_rad*cang     -in_rad*sang 	  0
+15	in_rad*(sang)*cang  in_rad*(sang)*sang  -in_rad
+16	0						 in_rad 		  0
+
+17  0 						 -in_rad*sang     in_rad
+18  0 						 -in_rad*sang     -in_rad
+19  -in_rad*cang	 -in_rad*sang     0
+20  -in_rad*(sang)*cang in_rad*(sang)*sang  in_rad
+21  -in_rad*(sang)*cang in_rad*(sang)*sang  -in_rad
+
+
+edges
+1 1 2 		plane1 
+2 2 3		plane1 
+3 3 4		plane1 
+4 4 1		plane1 
+5 5 6		plane2
+6 6 7		plane2 
+7 7 8		plane2 
+8 8 5		plane2 
+9 9 10		plane3 
+10 10 11	plane3 
+11 11 12	plane3 
+12 12 9		plane3 
+
+13 1 13
+14 2 14
+15 3 15
+16 4 16
+
+17 5 17
+18 6 14
+19 7 18
+20 8 19
+
+21 9 20
+22 10 16
+23 11 21
+24 12 19
+
+25 13 17
+26 17 20
+27 20 13
+
+28 15 18
+29 18 21
+30 21 15
+
+31 13 16
+32 16 15
+33 15 14
+34 14 13
+
+35 17 14 
+36 14 18
+37 18 19
+38 19 17
+
+39 20 19
+40 19 21
+41 21 16
+42 16 20
+
+faces 
+1 -1 13 -34 -14
+2 -2 14 -33 -15
+3 -3 15 -32 -16
+4 -4 16 -31 -13
+
+5 5 18 -35 -17
+6 6 19 -36 -18
+7 7 20 -37 -19
+8 8 17 -38 -20
+  
+9 21 -42 -22 -9
+10 22 -41 -23 -10  
+11 23 -40 -24 -11
+12 24 -39 -21 -12
+
+13 31 42 27
+14 25 35 34
+15 26 39 38
+
+16 36 -28 33
+17 37 40 -29
+18 32 -30 41
+
+19 -26 -25 -27 
+
+20 28 29 30
+
+bodies 
+1 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 //PRESSURE pressure_const
+
+
+
+read
+
+set faces tension gamma
+// set vertex h_zero J0/2
+
+
+run  	:= {read "run.cmd";};
+rung  	:= {read "rung.cmd";};
+rungv  	:= {read "rungv.cmd";};
+runh 	:= {read "runh.cmd";};
+gogo  	:= {read "gogo.cmd";};
+run 	:= {u; V 10; u; g 200; hessian_seek; g 100};
+runv	:= {{u; V 30; u;}3; g 200};
+//groom   := {w 0.5; t 1; K 20*pi/180; n 0.8; u 3;};
+groom   := {w (avg(face,area)-toler*sqrt(avg(face,area^2)-avg(face,area)^2)); t (avg(edge,length)-toler*sqrt(avg(edge,length^2)-avg(edge,length)^2)); K 10*pi/180; n 0.8; u 5;};     // number of std tolerance - 
+
+
+
+//s
+//q
+print protocol ;
+quiet on;
+///*
+
+u; g 10; V 5; u; r;
+
+read "redistribute_edges2.cmd" ;
+
+r :::= {groom ; 'r' ; };
+
+read "init2.cmd";
+conj_grad on ;
+g 100; 
+{u; V 2; u;}100 ;
+g 100 ;
+
+{u; V 2; u;}100 ;
+//r;
+
+
+
+
+
+///*
+
+run ;
+{u; V 2; u;}100 ;
+
+conj_grad off ;
+
+set body[1].target body[1].volume+dV
+gamma := final_gamma;
+set faces tension gamma;
+
+run;
+{hessian_seek;}2;
+run;
+
+conj_grad on ;
+
+{u; V 2; u;}100 ;
+
+r;
+
+//read "inf_run_and_hess4.cmd" ;
+//run ;
+
+
+
+
+
+///*/
+
+quiet off;
+//
+//

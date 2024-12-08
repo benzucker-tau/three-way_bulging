@@ -1,0 +1,151 @@
+// tube-const_vol_2a.fe
+// 
+// new version:  start with different constrction ( triangles less skinny) 
+
+parameter tube_volume   = 24.809 					// volume for 3 way junction with arm = 4   ||||  V = 23.06878856 for arm = 4.2   ||||V = 24.809 for arm = 4.6 |||  V = 22.17025
+parameter kappa 		= 1							// bending rigidtiy
+parameter gamma 		= 1							// tension
+parameter final_gamma 	= 1
+parameter rad 			= sqrt(0.5*kappa/gamma) 	// initial radius of tubes
+parameter tlength 		= tube_volume/(pi*rad^2) 	// tube's lengths
+parameter pressure_const= 0.0  						// internal pressure
+parameter dV	        = 1.0
+parameter protocol		= 0
+parameter toler 	= 2  			// number of std tolerable in geometric feature distribution
+
+parameter cal_pressure 	= 0
+parameter nrad			= 2*pi*rad 	
+ 
+constraint plane1  							/* tubule end*/
+formula: tlength-y=0
+
+constraint plane2   				    	/* tubule end */
+formula: y=0
+
+quantity stnsq energy modulus 2*kappa method star_perp_sq_mean_curvature global	
+//quantity gint info_only method gauss_curvature_integral global
+//quantity gint2 info_only method star_gauss_curvature global
+
+vertices
+1 rad	tlength	0				plane1
+2 0		tlength	rad				plane1
+3 -rad	tlength	0				plane1
+4 0		tlength	-rad			plane1
+
+5 rad	0.5*tlength	0					
+6 0		0.5*tlength	rad					
+7 -rad	0.5*tlength	0					
+8 0		0.5*tlength	-rad 				
+
+9 rad	0	0					plane2
+10 0		0	rad				plane2
+11 -rad	0	0					plane2
+12 0		0	-rad 			plane2
+
+edges
+1 1 2							plane1
+2 2 3							plane1
+3 3 4							plane1
+4 4 1     						plane1
+
+5 5 6									
+6 6 7									
+7 7 8							
+8 8 5							
+
+9 9 10							plane2
+10 10 11						plane2
+11 11 12						plane2
+12 12 9							plane2
+
+
+13 1 5
+14 2 6
+15 3 7
+16 4 8
+
+17 5 9
+18 6 10
+19 7 11
+20 8 12
+
+face
+1 -1 13 5 -14
+2 -2 14 6 -15  
+3 -3 15 7 -16
+4 -4 16 8 -13
+
+5 -5 17 9 -18
+6 -6 18 10 -19
+7 -7 19 11 -20
+8 -8 20 12 -17
+body
+1 -1 -2 -3 -4 -5 -6 -7 -8 //PRESSURE pressure_const
+
+
+
+read
+//s
+//q
+
+
+reverse_orientation faces
+set faces tension gamma
+
+run  	:= {read "run.cmd";}
+rung  	:= {read "rung.cmd";}
+rungg  	:= {read "rungg.cmd";}
+rungv  	:= {read "rungv.cmd";}
+runh 	:= {read "runh.cmd";}
+run 	:= {u; V 10; u; g 200; hessian_seek; g 100}
+runv	:= {{u; V 30; u;}3; g 200}
+gogo  	:= {read "gogo.cmd";}
+groom   := {w (avg(face,area)-toler*sqrt(avg(face,area^2)-avg(face,area)^2)); t (avg(edge,length)-toler*sqrt(avg(edge,length^2)-avg(edge,length)^2)); K 10*pi/180; n 0.8; u 5;};     // number of std tolerance - 
+
+
+quiet on;
+
+r
+g 10
+r
+run
+//r
+
+r :::= {groom ; 'r' ; };
+
+g 100;
+/*
+u 3;
+V 100;
+u 3;
+run ;
+*/
+conj_grad on ;
+g 100;
+{u; V 2; u;}100 ;
+
+
+conj_grad off ;
+
+set body[1].target body[1].volume+dv
+gamma := final_gamma;
+set faces tension gamma;
+
+
+COMx := avg(vertex,x);
+COMz := avg(vertex,z);
+
+shrinkfactor := 0.2;
+foreach vertex vv do {vv.x := (vv.x-COMx)*(1-shrinkfactor+shrinkfactor*sin(pi*vv.y/tlength))+COMx; vv.z := (vv.z-COMz)*(1-shrinkfactor+shrinkfactor*sin(pi*vv.y/tlength))+COMz};
+g 1000;
+r
+run
+///*
+{u 3; V 2; u 3;}10
+g 100;
+{u 3; V 2; u 3;}10
+///*/
+run 
+
+quiet off;
+// can add 'run 5' which fixes nicely the shapes
